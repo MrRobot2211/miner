@@ -40,6 +40,7 @@ def _add_common_arguments(parser: argparse.ArgumentParser):
     parser.add_argument('--metrics', type=str, nargs='+', help='List of metrics used for evaluation')
     parser.add_argument('--evaluation_info', type=str, nargs='+', choices=['loss', 'metrics'],
                         help='Evaluation information to log')
+    parser.add_argument('--device', type=str,default='cuda:0' ,help='Device to run training on')
 
 
 def _add_train_data_args(parser: argparse.ArgumentParser):
@@ -49,6 +50,13 @@ def _add_train_data_args(parser: argparse.ArgumentParser):
     parser.add_argument('--train_news_path', type=str, help='Path to the news.tsv file for the training phase')
     parser.add_argument('--eval_behaviors_path', type=str,
                         help='Path to the behaviors.tsv file for the evaluation phase')
+    parser.add_argument('--augmentations', nargs='*',default=None,
+                        help='Augmentations file prefix')
+    parser.add_argument('--augmentation_mode',type=str,choices=['base','hard'] , default='base',
+                        help='Defines augmentation mode')
+    parser.add_argument('--online',type=int,choices=[0,1] , default=0,
+                        help='Defines augmentation mode')
+    
     parser.add_argument('--eval_news_path', type=str, help='Path to the news.tsv file for the evaluation phase')
     parser.add_argument('--fast_eval', action='store_true', help='Is there a fast evaluation for the eval dataset?')
 

@@ -42,7 +42,7 @@ def get_device() -> str:
         ``cpu`` for CPU or ``cuda`` for GPU
     """
     if torch.cuda.is_available():
-        return 'cuda'
+        return 'cuda:2'
     return 'cpu'
 
 

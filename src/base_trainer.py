@@ -17,9 +17,13 @@ class BaseTrainer(ABC):
     def __init__(self, args):
         self.args = args
         self._init_logger()
-        self._device = torch.device(utils.get_device())
-        if utils.get_device() == 'cuda':
-            self._logger.info(f'GPU: {torch.cuda.get_device_name(torch.cuda.current_device())}')
+        
+        #self._device = torch.device(utils.get_device())
+        #if utils.get_device() == 'cuda':
+        
+        self._device =args.device
+        print(self._device)
+        self._logger.info(f'GPU: {args.device}')
         utils.set_seed(args.seed)
 
     @abstractmethod
@@ -46,7 +50,7 @@ class BaseTrainer(ABC):
         self._logger = logging.getLogger()
         logger_utils.reset_logger(self._logger)
 
-        if self.args.mode == 'train':
+        if 'train' in self.args.mode :
             self._path = os.path.join(self.args.train_path, time)
             self._log_path = os.path.join(self._path, 'log')
             os.makedirs(self._path, exist_ok=True)

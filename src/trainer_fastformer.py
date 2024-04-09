@@ -16,7 +16,7 @@ from src import utils
 from src.base_trainer import BaseTrainer
 from src.entities import Dataset
 from src.evaluation import FastEvaluator, SlowEvaluator
-from src.model.model import Miner
+from src.model.model import Miner,FastFormer
 from src.model.news_encoder import NewsEncoder
 from src.loss import Loss
 from src.reader import Reader
@@ -97,11 +97,8 @@ class Trainer(BaseTrainer):
         
         
         #TODO FastFormer
-        model = Miner(news_encoder=news_encoder, use_category_bias=args.use_category_bias,
-                      num_context_codes=args.num_context_codes, context_code_dim=args.context_code_dim,
-                      score_type=args.score_type, dropout=args.dropout, num_category=len(self._category2id),
-                      category_embed_dim=args.category_embed_dim, category_pad_token_id=self._category2id['pad'],
-                      category_embed=category_embed)
+        model = FastFormer(news_encoder=news_encoder, 
+                      score_type=args.score_type, dropout=args.dropout)
         model.to(self._device)
         model.zero_grad(set_to_none=True)
 
@@ -238,13 +235,13 @@ class Trainer(BaseTrainer):
         batch = utils.to_device(batch, self._device)
         if self.args.fp16:
             with torch.autocast(device_type=self._device.type, dtype=torch.float16):
-                poly_attn, logits = self._forward_step(model, batch)
-                loss = loss_calculator.compute(poly_attn, logits, batch['label'])
+                logits = self._forward_step(model, batch)
+                loss = loss_calculator.compute_vanilla( logits, batch['label'])
                 loss = loss / accumulation_factor
             self.scaler.scale(loss).backward()
         else:
-            poly_attn, logits = self._forward_step(model, batch)
-            loss = loss_calculator.compute(poly_attn, logits, batch['label'])
+            logits = self._forward_step(model, batch)
+            loss = loss_calculator.compute_vanilla( logits, batch['label'])
             loss = loss / accumulation_factor
             loss.backward()
 
@@ -265,9 +262,9 @@ class Trainer(BaseTrainer):
         with torch.no_grad():
             for batch in tqdm(dataloader, total=len(dataloader), desc='Evaluation phase'):
                 batch = utils.to_device(batch, self._device)
-                poly_attn, logits = self._forward_step(model, batch)
+                logits = self._forward_step(model, batch)
                 if 'loss' in self.args.evaluation_info:
-                    batch_loss = loss_calculator.compute_eval_loss(poly_attn, logits, batch['label'])
+                    batch_loss = loss_calculator.compute_vanilla_eval_loss( logits, batch['label'])
                     total_loss += batch_loss
                     total_pos_example += batch['label'].sum().item()
                 if 'metrics' in self.args.evaluation_info:
@@ -319,9 +316,9 @@ class Trainer(BaseTrainer):
 
     @staticmethod
     def _forward_step(model, batch):
-        poly_attn, logits = model(title=batch['title'], title_mask=batch['title_mask'], his_title=batch['his_title'],
+        logits = model(title=batch['title'], title_mask=batch['title_mask'], his_title=batch['his_title'],
                                   his_title_mask=batch['his_title_mask'], his_mask=batch['his_mask'],
                                   sapo=batch['sapo'], sapo_mask=batch['sapo_mask'], his_sapo=batch['his_sapo'],
                                   his_sapo_mask=batch['his_sapo_mask'], category=batch['category'],
                                   his_category=batch['his_category'])
-        return poly_attn, logits
+        return  logits
