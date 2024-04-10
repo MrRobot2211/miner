@@ -46,5 +46,5 @@
 --max_grad_norm 1.0
 --weight_decay 0.01
 --logging_steps 200
---evaluation_info metrics
+--evaluation_info metrics loss
 --eval_steps 400

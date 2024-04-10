@@ -8,7 +8,7 @@
 --his_length 50
 --seed 36
 --metrics auc mrr ndcg@5
---device cuda:0
+--device cuda:1
 
 # Data args
 --data_name CafeF_News_Recommend_Data
@@ -17,7 +17,9 @@
 --eval_behaviors_path data/valid/behaviors.tsv
 --eval_news_path data/valid/news.tsv
 --augmentations changed_topic_text enhanced_text semi_enhanced_text
+--augmentation_mode hard
 --online 1
+--metrics auc mrr ndcg@5
 
 # Model args
 --pretrained_embedding FacebookAI/roberta-base
@@ -33,17 +35,17 @@
 
 # Train args
 --npratio 4
---train_batch_size 2
+--train_batch_size 1
 --eval_batch_size 16
 --dataloader_drop_last
 --dataloader_num_workers 4
 --dataloader_pin_memory
---gradient_accumulation_steps 64
+--gradient_accumulation_steps 128
 --num_train_epochs 5
 --learning_rate 2e-5
 --warmup_ratio 0.1
 --max_grad_norm 1.0
---weight_decay 0.01
+--weight_decay 0.005
 --logging_steps 200
 --evaluation_info metrics loss
 --eval_steps 400
