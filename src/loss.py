@@ -17,7 +17,10 @@ class Loss(AbstractLoss):
         self._criterion = criterion
 
     def compute_vanilla(self, logits: Tensor, labels: Tensor):
-        targets = labels.argmax(dim=1)
+        if labels.dim()>1:
+            targets = labels.argmax(dim=1)
+        else:
+            targets=labels
         rank_loss = self._criterion(logits, targets)
         return rank_loss
 
@@ -39,8 +42,9 @@ class Loss(AbstractLoss):
         total_loss = disagreement_loss + rank_loss
 
         return total_loss
-    @staticmethod
-    def compute_vanilla_eval_loss( logits: Tensor, labels: Tensor):
+    
+   
+    def compute_vanilla_eval_loss(self,logits: Tensor, labels: Tensor):
         """
         Compute loss for evaluation phase
 
@@ -52,8 +56,10 @@ class Loss(AbstractLoss):
         Returns:
             Loss value
         """
-       
-        rank_loss = -(torch_f.logsigmoid(logits) * labels).sum()
+        if labels.dim()==1:
+            rank_loss = self._criterion(logits, labels)
+        else:    
+            rank_loss = -(torch_f.logsigmoid(logits) * labels).sum()
         total_loss =  rank_loss
 
         return total_loss.item()

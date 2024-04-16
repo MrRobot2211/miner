@@ -10,14 +10,16 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import transformers
-from transformers import AutoTokenizer, RobertaConfig
+from transformers import AutoTokenizer, RobertaConfig, BertConfig
 
 from src import utils
 from src.base_trainer import BaseTrainer
-from src.entities import Dataset
+from src.entities import Dataset,MindDataset,MindEvalDataset
 from src.evaluation import FastEvaluator, SlowEvaluator
 from src.model.model import Miner,FastFormer
-from src.model.news_encoder import NewsEncoder
+from src.model.model_unisrec import UniSRec
+from src.model.model_unbert import UNBERT
+from src.model.news_encoder import NewsEncoder,NewsEncoderMoe
 from src.loss import Loss
 from src.reader import Reader
 
@@ -26,7 +28,8 @@ class Trainer(BaseTrainer):
     def __init__(self, args):
         super().__init__(args)
         self._tokenizer = AutoTokenizer.from_pretrained(args.pretrained_tokenizer)
-
+        print("tokenizer_pad")
+        print(self._tokenizer.pad_token_id)
         with open(args.user2id_path, mode='r', encoding='utf-8') as f:
             self._user2id = json.load(f)
         with open(args.category2id_path, mode='r', encoding='utf-8') as f:
@@ -54,19 +57,35 @@ class Trainer(BaseTrainer):
         reader = Reader(tokenizer=self._tokenizer, max_title_length=args.max_title_length,
                         max_sapo_length=args.max_sapo_length, user2id=self._user2id, category2id=self._category2id,
                         max_his_click=args.his_length, 
-                        npratio=args.npratio) #defines the number opf negatives to use by default se to 4
+                        npratio=args.npratio) #defines the number opf negatives to use by default set to 4
          
         train_dataset = reader.read_train_dataset(args.data_name, args.train_news_path, args.train_behaviors_path, 
                                                   args.augmentations,aug_mode=args.augmentation_mode,online=bool(args.online))
         train_dataset.set_mode(Dataset.TRAIN_MODE)
-        train_dataloader = DataLoader(train_dataset, batch_size=args.train_batch_size, shuffle=False,
+        train_dataset.combine_type = args.combine_type
+
+
+        if args.augmentation_mode=='unbert':
+            train_dataloader = DataLoader(train_dataset, batch_size=args.train_batch_size, shuffle=False,
+                                      num_workers=args.dataloader_num_workers, collate_fn=train_dataset.collate,
+                                      drop_last=args.dataloader_drop_last, pin_memory=args.dataloader_pin_memory)
+        else:
+            train_dataloader = DataLoader(train_dataset, batch_size=args.train_batch_size, shuffle=False,
                                       num_workers=args.dataloader_num_workers, collate_fn=self._collate_fn,
                                       drop_last=args.dataloader_drop_last, pin_memory=args.dataloader_pin_memory)
-        if args.fast_eval:
-            eval_dataset = reader.read_train_dataset(args.data_name, args.eval_news_path, args.eval_behaviors_path)
+        if args.fast_eval or args.augmentation_mode=='unbert':
+            if args.augmentation_mode=='unbert':
+                eval_dataset = reader.read_eval_dataset(args.data_name, args.eval_news_path, args.eval_behaviors_path,aug_mode=args.augmentation_mode, online=bool(args.online))
+            else:
+                eval_dataset = reader.read_train_dataset(args.data_name, args.eval_news_path, args.eval_behaviors_path, online=bool(args.online))
+            if  isinstance(eval_dataset,MindEvalDataset):
+                print("eval dataset like trainer")                                         
         else:
             eval_dataset = reader.read_eval_dataset(args.data_name, args.eval_news_path, args.eval_behaviors_path)
+            print("eval dataset")
         self._log_dataset(train_dataset, eval_dataset)
+        eval_dataset.combine_type = args.combine_type
+        print(train_dataset.combine_type)
 
         total_train_batch_size = args.train_batch_size * args.gradient_accumulation_steps
         len_dataloader = len(train_dataloader)
@@ -88,17 +107,40 @@ class Trainer(BaseTrainer):
         self._logger.info(f'Gradient accumulation steps: {args.gradient_accumulation_steps}')
 
         # Create model
-        config = RobertaConfig.from_pretrained(args.pretrained_embedding)
-        news_encoder = NewsEncoder.from_pretrained(args.pretrained_embedding, config=config,
-                                                   apply_reduce_dim=args.apply_reduce_dim, use_sapo=args.use_sapo,
-                                                   dropout=args.dropout, freeze_transformer=args.freeze_transformer,
-                                                   word_embed_dim=args.word_embed_dim, combine_type=args.combine_type,
-                                                   lstm_num_layers=args.lstm_num_layers, lstm_dropout=args.lstm_dropout)
-        
-        
-        #TODO FastFormer
-        model = FastFormer(news_encoder=news_encoder, 
-                      score_type=args.score_type, dropout=args.dropout)
+        if args.model_name == "fastformer":
+            config = RobertaConfig.from_pretrained(args.pretrained_embedding)
+            news_encoder = NewsEncoder.from_pretrained(args.pretrained_embedding, config=config,
+                                                    apply_reduce_dim=args.apply_reduce_dim, use_sapo=args.use_sapo,
+                                                    dropout=args.dropout, freeze_transformer=args.freeze_transformer,
+                                                    word_embed_dim=args.word_embed_dim, combine_type=args.combine_type,
+                                                    lstm_num_layers=args.lstm_num_layers, lstm_dropout=args.lstm_dropout)
+            
+            #TODO FastFormer
+            model = FastFormer(news_encoder=news_encoder, 
+                        score_type=args.score_type, dropout=args.dropout)
+            
+        elif args.model_name=='unisrec':
+            config = BertConfig.from_pretrained(args.pretrained_embedding)
+            news_encoder = NewsEncoderMoe.from_pretrained(args.pretrained_embedding, config=config,
+                                                    apply_reduce_dim=args.apply_reduce_dim, use_sapo=args.use_sapo,
+                                                    dropout=args.dropout, freeze_transformer=args.freeze_transformer,
+                                                    word_embed_dim=args.word_embed_dim, combine_type=args.combine_type,
+                                                    lstm_num_layers=args.lstm_num_layers, lstm_dropout=args.lstm_dropout)
+            
+            
+            #TODO FastFormer
+            state_dict= torch.load('unisrec_pretrained_weights/unisrec_pretained_state_dict.pth',map_location='cpu')
+            news_encoder.load_state_dict(state_dict=state_dict,strict=False)
+            print("loaded")
+            model = UniSRec(news_encoder=news_encoder,args=args)
+            model.load_state_dict(state_dict=state_dict,strict=False)
+            for n,param in model.named_parameters():
+                print(n,param.requires_grad)
+
+        elif args.model_name=='unbert':
+            model = UNBERT(pretrained=args.pretrained_embedding,max_len = args.his_length)
+
+
         model.to(self._device)
         model.zero_grad(set_to_none=True)
 
@@ -215,7 +257,12 @@ class Trainer(BaseTrainer):
         reader = Reader(tokenizer=self._tokenizer, max_title_length=args.max_title_length,
                         max_sapo_length=args.max_sapo_length, user2id=self._user2id, category2id=self._category2id,
                         max_his_click=args.his_length, npratio=None)
-        dataset = reader.read_eval_dataset(args.data_name, args.eval_news_path, args.eval_behaviors_path)
+        
+        if args.model_name=='unbert':
+            dataset = reader.read_eval_dataset(args.data_name, args.eval_news_path, args.eval_behaviors_path,aug_mode="unbert")
+        else:
+            dataset = reader.read_eval_dataset(args.data_name, args.eval_news_path, args.eval_behaviors_path)
+        
         self._logger.info(f'Model: {self.args.model_name}')
         self._logger.info(f'Dataset: {self.args.data_name}')
         self._logger.info(f'Test dataset: {len(dataset)} samples')
@@ -254,7 +301,12 @@ class Trainer(BaseTrainer):
             evaluator = FastEvaluator(dataset)
         else:
             evaluator = SlowEvaluator(dataset)
-        dataloader = DataLoader(dataset, batch_size=self.args.eval_batch_size, shuffle=False,
+        if isinstance(dataset,MindEvalDataset):
+            dataloader = DataLoader(dataset, batch_size=self.args.eval_batch_size, shuffle=False,
+                                num_workers=self.args.dataloader_num_workers, collate_fn=dataset.collate,
+                                drop_last=False)
+        else:
+            dataloader = DataLoader(dataset, batch_size=self.args.eval_batch_size, shuffle=False,
                                 num_workers=self.args.dataloader_num_workers, collate_fn=self._collate_fn,
                                 drop_last=False)
         total_loss = 0.0
@@ -263,12 +315,21 @@ class Trainer(BaseTrainer):
             for batch in tqdm(dataloader, total=len(dataloader), desc='Evaluation phase'):
                 batch = utils.to_device(batch, self._device)
                 logits = self._forward_step(model, batch)
+                #print(logits.shape)
                 if 'loss' in self.args.evaluation_info:
                     batch_loss = loss_calculator.compute_vanilla_eval_loss( logits, batch['label'])
                     total_loss += batch_loss
                     total_pos_example += batch['label'].sum().item()
                 if 'metrics' in self.args.evaluation_info:
-                    evaluator.eval_batch(logits, batch['impression_id'])
+                    #unbert causes this
+                    if isinstance(dataset,MindEvalDataset):
+                        evaluator.eval_batch(logits, batch['impression_id'])
+                    else:
+                        evaluator.eval_batch(logits, batch['impression_id'])
+            print(logits.shape)
+            print(batch['impression_id'].shape)
+           # print(len(evaluator.targets))
+           # print(len(evaluator.prob_predictions))
 
         if 'loss' in self.args.evaluation_info:
             loss = total_loss / total_pos_example
@@ -316,9 +377,10 @@ class Trainer(BaseTrainer):
 
     @staticmethod
     def _forward_step(model, batch):
-        logits = model(title=batch['title'], title_mask=batch['title_mask'], his_title=batch['his_title'],
-                                  his_title_mask=batch['his_title_mask'], his_mask=batch['his_mask'],
-                                  sapo=batch['sapo'], sapo_mask=batch['sapo_mask'], his_sapo=batch['his_sapo'],
-                                  his_sapo_mask=batch['his_sapo_mask'], category=batch['category'],
-                                  his_category=batch['his_category'])
+        # logits = model(title=batch['title'], title_mask=batch['title_mask'], his_title=batch['his_title'],
+        #                           his_title_mask=batch['his_title_mask'], his_mask=batch['his_mask'],
+        #                           sapo=batch['sapo'], sapo_mask=batch['sapo_mask'], his_sapo=batch['his_sapo'],
+        #                           his_sapo_mask=batch['his_sapo_mask'], category=batch['category'],
+        #                           his_category=batch['his_category'])
+        logits = model(**{k:v for k,v in  batch.items() if k not in ('label','impression_id')})
         return  logits

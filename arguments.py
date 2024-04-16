@@ -52,7 +52,7 @@ def _add_train_data_args(parser: argparse.ArgumentParser):
                         help='Path to the behaviors.tsv file for the evaluation phase')
     parser.add_argument('--augmentations', nargs='*',default=None,
                         help='Augmentations file prefix')
-    parser.add_argument('--augmentation_mode',type=str,choices=['base','hard'] , default='base',
+    parser.add_argument('--augmentation_mode',type=str,choices=['base','hard','unbert'] , default='base',
                         help='Defines augmentation mode')
     parser.add_argument('--online',type=int,choices=[0,1] , default=0,
                         help='Defines augmentation mode')
@@ -69,7 +69,7 @@ def _add_model_args(parser: argparse.ArgumentParser):
     parser.add_argument('--freeze_transformer', action='store_true', help='Whether to freeze Roberta weight or not')
     parser.add_argument('--word_embed_dim', type=int, help='Size of each word embedding vector if apply_reduce_dim')
     parser.add_argument('--category_embed_dim', type=int, help='Size of each category embedding vector')
-    parser.add_argument('--combine_type', type=str, choices=['linear', 'lstm'])
+    parser.add_argument('--combine_type', type=str, choices=['linear', 'lstm','pre-concat'])
     parser.add_argument('--lstm_num_layers', type=int, help='Number of recurrent layers in LSTM')
     parser.add_argument('--lstm_dropout', type=float, help='Dropout value in LSTM')
     parser.add_argument('--use_category_bias', action='store_true', help='Whether to use category embedding or not')

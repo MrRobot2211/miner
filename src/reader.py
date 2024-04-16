@@ -8,7 +8,7 @@ from transformers import PreTrainedTokenizer
 import numpy as np
 
 from src import constants
-from src.entities import Dataset, News,DatasetOnline
+from src.entities import Dataset, News,DatasetOnline,MindDataset,MindEvalDataset
 
 
 class Reader:
@@ -38,12 +38,20 @@ class Reader:
         
         return dataset
 
-    def read_eval_dataset(self, data_name: str, news_path: str, behaviors_path: str) -> Dataset:
-        dataset, news_dataset = self._read(data_name, news_path)
+    def read_eval_dataset(self, data_name: str, news_path: str, behaviors_path: str,aug_mode='base',online=False) -> Dataset:
+        if aug_mode == 'unbert':
+            dataset, news_dataset = self._read(data_name, news_path,gen_mode='val_'+aug_mode,online=online)
+        else:
+            dataset, news_dataset = self._read(data_name, news_path,online=online)
+        
         with open(behaviors_path, mode='r', encoding='utf-8', newline='') as f:
             behaviors_tsv = csv.reader(f, delimiter='\t')
             for i, line in enumerate(behaviors_tsv):
-                self._parse_eval_line(i, line, news_dataset, dataset)
+                if not online:
+                    self._parse_eval_line(i, line, news_dataset, dataset)
+                else:
+                    self._parse_eval_line(i, line, news_dataset, dataset)
+
 
         return dataset
 
@@ -55,9 +63,13 @@ class Reader:
         dataset = Dataset(data_name, self._tokenizer, self._category2id)
         news_dataset = self._read_news_info(news_path, dataset)
         if online:
-            dataset = DatasetOnline(data_name, self._tokenizer, self._category2id,aug_type=gen_mode,pad_id=news_dataset['pad'])
+            if gen_mode =='unbert':
+                dataset = MindDataset(data_name, self._tokenizer, self._category2id,aug_type=gen_mode,pad_id=news_dataset['pad'])
+            else:
+                dataset = DatasetOnline(data_name, self._tokenizer, self._category2id,aug_type=gen_mode,pad_id=news_dataset['pad'])
         
-        
+        if gen_mode =='val_unbert':
+            dataset = MindEvalDataset(data_name, self._tokenizer, self._category2id,pad_id=news_dataset['pad'])
         
         #dataset = AugDataset(data_name, self._tokenizer, self._category2id)
         
@@ -85,9 +97,16 @@ class Reader:
         Returns:
             A dictionary
         """
-        pad_news_obj = dataset.create_news(
-            [self._tokenizer.cls_token_id, self._tokenizer.eos_token_id],
-            [self._tokenizer.cls_token_id, self._tokenizer.eos_token_id], self._category2id['pad'])
+        
+        if self._tokenizer.eos_token_id is not None:
+            pad_news_obj = dataset.create_news(
+                [self._tokenizer.cls_token_id, self._tokenizer.eos_token_id],
+                [self._tokenizer.cls_token_id, self._tokenizer.eos_token_id], self._category2id['pad'])
+        else:
+            pad_news_obj = dataset.create_news(
+                [self._tokenizer.cls_token_id, self._tokenizer.pad_token_id],
+                [self._tokenizer.cls_token_id, self._tokenizer.pad_token_id], self._category2id['pad'])
+        #print( [self._tokenizer.cls_token_id, self._tokenizer.eos_token_id])
         news_dataset = {'pad': pad_news_obj}
         with open(news_path, mode='r', encoding='utf-8', newline='') as f:
             news_tsv = csv.reader(f, delimiter='\t')
@@ -149,7 +168,8 @@ class Reader:
         
         neg_news = [news_dataset['vanilla'][news_id] for news_id, label in
                     [behavior.split('-') for behavior in line[constants.BEHAVIOR].split()] if label == '0']
-        
+        if len(neg_news) ==0:
+            return
         for news in pos_news:
             label = [1] + [0] * self._npratio
             list_news = [news] + sample_news(neg_news, self._npratio, news_dataset['vanilla']['pad'])
@@ -252,8 +272,9 @@ class Reader:
 
         if augmentations is None:
         
-            pos_news = [news_dataset['vanilla'][news_id] for news_id, label in
-                        [behavior.split('-') for behavior in line[constants.BEHAVIOR].split()] if label == '1']
+            augmentations = ["vanilla"] 
+            pos_news = { aug:[news_dataset[aug][news_id] for news_id, label in
+                        [behavior.split('-') for behavior in line[constants.BEHAVIOR].split()] if label == '1'] for aug in augmentations}
             
         else:
             augmentations = ["vanilla"] +augmentations
@@ -262,7 +283,8 @@ class Reader:
         
         neg_news = [news_dataset['vanilla'][news_id] for news_id, label in
                     [behavior.split('-') for behavior in line[constants.BEHAVIOR].split()] if label == '0']
-        if len(pos_news['vanilla'])>0:
+        
+        if (len(pos_news['vanilla'])>0) and (len(neg_news)>0):
             dataset.add_sample(user_id, history_clicked,pos_news,neg_news,  self._npratio, impression_id)
 
 
@@ -293,6 +315,58 @@ class Reader:
             news_id, label = behavior.split('-')
             impression = dataset.create_impression(impression_id, user_id, [news_dataset[news_id]], [int(label)])
             dataset.add_sample(user_id, history_clicked, impression)
+
+
+    
+def _parse_train_line_online_unbert(self, impression_id, line, news_dataset, dataset,augmentations=None):
+        r"""
+        Parse a line of the training dataset
+
+        Args:
+            impression_id: ID of the impression.
+            line: information about the impression ``(ID - User ID - Time - History - Behavior)``.
+            news_dataset: a dictionary contains information about all the news ``(News ID - News object)``.
+            dataset: Dataset object.
+
+        Returns:
+            None
+        """
+        user_id = self._user2id.get(line[constants.USER_ID], self._user2id['unk'])
+
+
+
+        #['vanilla']
+        history_clicked = [news_dataset['vanilla'][news_id] for news_id in line[constants.HISTORY].split()]
+        history_clicked = [news_dataset['vanilla']['pad']] * (self._max_his_click - len(history_clicked)) + history_clicked[
+                                                                                                 :self._max_his_click]
+        
+
+
+        if augmentations is None:
+        
+            augmentations = ["vanilla"] 
+            pos_news = { aug:[news_dataset[aug][news_id] for news_id, label in
+                        [behavior.split('-') for behavior in line[constants.BEHAVIOR].split()] if label == '1'] for aug in augmentations}
+            
+        else:
+            augmentations = ["vanilla"] +augmentations
+            pos_news = { aug:[news_dataset[aug][news_id] for news_id, label in
+                        [behavior.split('-') for behavior in line[constants.BEHAVIOR].split()] if label == '1'] for aug in augmentations}
+        
+        neg_news = [news_dataset['vanilla'][news_id] for news_id, label in
+                    [behavior.split('-') for behavior in line[constants.BEHAVIOR].split()] if label == '0']
+        
+        if (len(pos_news['vanilla'])>0) and (len(neg_news)>0):
+            dataset.add_sample(user_id, history_clicked,pos_news,neg_news,  self._npratio, impression_id)
+
+        for behavior in line[constants.BEHAVIOR].split():
+            news_id, label = behavior.split('-')
+            impression = dataset.create_impression(impression_id, user_id, [news_dataset[news_id]], [int(label)])
+            dataset.add_sample(user_id, history_clicked, impression)
+
+
+
+
 
 
 def sample_news(list_news: List[News], num_news: int, pad: News) -> List:

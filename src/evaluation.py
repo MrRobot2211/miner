@@ -34,7 +34,11 @@ class BaseEvaluator(ABC):
 
     def compute_scores(self, metrics: List[str], save_result: bool, path: str = None):
         self._convert_pred()
+        print(len(self.targets))
+        print(self.targets[1])
+        print(self.prob_predictions[1])
         assert len(self.targets) == len(self.prob_predictions)
+       
         targets = flatten(self.targets)
         prob_predictions = flatten(self.prob_predictions)
         scores = {}
@@ -105,11 +109,16 @@ class SlowEvaluator(BaseEvaluator):
 
         group_labels = sorted(group_labels.items())
         self.targets = [i[1] for i in group_labels]
+        print(group_labels[impression_id])
+        print(len(self.targets))
 
     def _convert_pred(self):
         group_predictions = {}
         for prob_prediction, impression_id in zip(self.prob_predictions, self.impression_ids):
-            group_predictions[impression_id] = group_predictions.get(impression_id, []) + prob_prediction
+            if not isinstance(prob_prediction,list):
+                prob_prediction =[prob_prediction]
+
+            group_predictions[impression_id] = group_predictions.get(impression_id, []) + prob_prediction #[prob_prediction]
 
         group_predictions = sorted(group_predictions.items())
         self.prob_predictions = [i[1] for i in group_predictions]
@@ -125,7 +134,13 @@ class SlowEvaluator(BaseEvaluator):
         Returns:
             None
         """
+        #unbert forced me to change
+        
+        
         probs = torch.sigmoid(logits)
+        #probs = torch.softmax(logits,dim=0)
+        #self.prob_predictions.extend(probs[:,1].tolist())
+        
         self.prob_predictions.extend(probs.tolist())
         self.impression_ids.extend(impression_ids.tolist())
 

@@ -543,3 +543,7 @@ class FastformerEncoder(nn.Module):
       #  print(embeddings.size())
 
         return output 
+    
+
+
+
