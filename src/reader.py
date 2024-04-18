@@ -269,6 +269,55 @@ class Reader:
                                                                                                  :self._max_his_click]
         
 
+        if augmentations is None:
+        
+            augmentations = ["vanilla"] 
+            pos_news = [{ aug:news_dataset[aug][news_id] for aug in augmentations} for news_id, label in
+                        [behavior.split('-') for behavior in line[constants.BEHAVIOR].split()] if label == '1'] 
+            
+        else:
+            augmentations = ["vanilla"] +augmentations
+            pos_news = [{ aug:news_dataset[aug][news_id] for aug in augmentations} for news_id, label in
+                        [behavior.split('-') for behavior in line[constants.BEHAVIOR].split()] if label == '1'] 
+        
+        neg_news = [news_dataset['vanilla'][news_id] for news_id, label in
+                    [behavior.split('-') for behavior in line[constants.BEHAVIOR].split()] if label == '0']
+        
+        
+        #print(isinstance(dataset,MindDataset))
+        if isinstance(dataset,MindDataset) and ((len(pos_news)>0) or (len(neg_news)>0)):
+            dataset.add_sample(user_id, history_clicked,pos_news,neg_news,  self._npratio, impression_id)
+        else:
+            if (len(pos_news)>0) and (len(neg_news)>0):
+                for pos_new in pos_news:
+                    #print(pos_new)
+                    #print(neg_news)
+                    dataset.add_sample(user_id, history_clicked,pos_new,neg_news,  self._npratio, impression_id)
+
+
+    def _parse_PREtrain_line_online(self, impression_id, line, news_dataset, dataset,augmentations=None):
+        r"""
+        Parse a line of the training dataset
+
+        Args:
+            impression_id: ID of the impression.
+            line: information about the impression ``(ID - User ID - Time - History - Behavior)``.
+            news_dataset: a dictionary contains information about all the news ``(News ID - News object)``.
+            dataset: Dataset object.
+
+        Returns:
+            None
+        """
+        user_id = self._user2id.get(line[constants.USER_ID], self._user2id['unk'])
+
+
+
+        #['vanilla']
+        history_clicked = [news_dataset['vanilla'][news_id] for news_id in line[constants.HISTORY].split()]
+        history_clicked = [news_dataset['vanilla']['pad']] * (self._max_his_click - len(history_clicked)) + history_clicked[
+                                                                                                 :self._max_his_click]
+        
+
 
         if augmentations is None:
         
@@ -284,8 +333,14 @@ class Reader:
         neg_news = [news_dataset['vanilla'][news_id] for news_id, label in
                     [behavior.split('-') for behavior in line[constants.BEHAVIOR].split()] if label == '0']
         
-        if (len(pos_news['vanilla'])>0) and (len(neg_news)>0):
+        
+        
+        if isinstance(dataset,MindDataset) and (len(pos_news['vanilla'])>0) or (len(neg_news)>0):
             dataset.add_sample(user_id, history_clicked,pos_news,neg_news,  self._npratio, impression_id)
+        else:
+            if (len(pos_news['vanilla'])>0) and (len(neg_news)>0):
+                dataset.add_sample(user_id, history_clicked,pos_news,neg_news,  self._npratio, impression_id)
+
 
 
 
@@ -316,7 +371,7 @@ class Reader:
             impression = dataset.create_impression(impression_id, user_id, [news_dataset[news_id]], [int(label)])
             dataset.add_sample(user_id, history_clicked, impression)
 
-
+#GENERATE LISTS OF POSITIVE AND OF NEGATIVE IMPRESSIONS
     
 def _parse_train_line_online_unbert(self, impression_id, line, news_dataset, dataset,augmentations=None):
         r"""

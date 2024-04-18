@@ -254,45 +254,45 @@ class DatasetOnline(Dataset):
    
     def _get_train_line(self,pos_news,neg_news,npratio,user_id,clicked_news,augmentations,impression_id):
 
-        for  i in range(len(pos_news['vanilla'])):
-            label = [1] + [0] * npratio
+        #for  i in range(len(pos_news['vanilla'])):
+        label = [1] + [0] * npratio
 
-            list_news = [pos_news[np.random.choice(augmentations)][i]] + sample_news(neg_news, npratio, self.pad_id)
+        list_news = [pos_news[np.random.choice(augmentations)]] + sample_news(neg_news, npratio, self.pad_id)
 
-            impression_news = list(zip(list_news, label))
-            np.random.shuffle(impression_news)
-            list_news, label = zip(*impression_news)
-            
+        impression_news = list(zip(list_news, label))
+        np.random.shuffle(impression_news)
+        list_news, label = zip(*impression_news)
         
-            impression = self.create_impression(impression_id, user_id, list_news, label)
-            self._id += 1
-            
-            sample = Sample(self._id, user_id, clicked_news, impression)
-            return sample
+    
+        impression = self.create_impression(impression_id, user_id, list_news, label)
+        self._id += 1
+        
+        sample = Sample(self._id, user_id, clicked_news, impression)
+        return sample
     
     def _get_train_line_hard(self,pos_news,neg_news,npratio,user_id,clicked_news,augmentations,impression_id):
 
-        for i in range(len(pos_news['vanilla'])):
-            label = [1] + [0] * npratio
+        #for i in range(len(pos_news['vanilla'])):
+        label = [1] + [0] * npratio
 
-            num_to_pick = np.random.randint(1,min(len(augmentations), npratio))
-            picks = np.random.choice(np.arange(len(augmentations)),num_to_pick,replace=False)
-            picks = np.sort(picks)
+        num_to_pick = np.random.randint(1,min(len(augmentations), npratio))
+        picks = np.random.choice(np.arange(len(augmentations)),num_to_pick,replace=False)
+        picks = np.sort(picks)
 
-            news = [pos_news[augmentations[pick]][i] for pick in picks]
-            #print(news)
-            list_news = news + sample_news(neg_news, npratio+1 - num_to_pick , self.pad_id)
-           # print(list_news)
-            assert len(list_news) == len(label)
-            impression_news = list(zip(list_news, label))
-            random.shuffle(impression_news)
-            list_news, label = zip(*impression_news)
-            
-            impression = self.create_impression(impression_id, user_id, list_news, label)
-            self._id += 1
-            
-            sample = Sample(self._id, user_id, clicked_news, impression)
-            return sample
+        news = [pos_news[augmentations[pick]] for pick in picks]
+        #print(news)
+        list_news = news + sample_news(neg_news, npratio+1 - num_to_pick , self.pad_id)
+        # print(list_news)
+        assert len(list_news) == len(label)
+        impression_news = list(zip(list_news, label))
+        random.shuffle(impression_news)
+        list_news, label = zip(*impression_news)
+        
+        impression = self.create_impression(impression_id, user_id, list_news, label)
+        self._id += 1
+        
+        sample = Sample(self._id, user_id, clicked_news, impression)
+        return sample
          
     
     #@TODO maybe do smth diff here
@@ -302,7 +302,7 @@ class DatasetOnline(Dataset):
         impression_id = sample.impression_id
         user_id = sample.user_id
         clicked_news =sample.clicked_news
-
+        #print(sample.pos_news)
         augmentations = [ aug for aug in sample.pos_news.keys()]
         pos_news = sample.pos_news
 

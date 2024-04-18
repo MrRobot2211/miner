@@ -3,6 +3,7 @@ import functools
 import operator
 import os
 from typing import List
+import pickle as pk
 
 import numpy as np
 from sklearn.metrics import roc_auc_score
@@ -37,6 +38,11 @@ class BaseEvaluator(ABC):
         print(len(self.targets))
         print(self.targets[1])
         print(self.prob_predictions[1])
+
+
+
+
+
         assert len(self.targets) == len(self.prob_predictions)
        
         targets = flatten(self.targets)
@@ -108,6 +114,9 @@ class SlowEvaluator(BaseEvaluator):
             group_labels[impression_id] = group_labels.get(impression_id, []) + sample.impression.label
 
         group_labels = sorted(group_labels.items())
+         #
+       # self.group_labels = group_labels 
+        #
         self.targets = [i[1] for i in group_labels]
         print(group_labels[impression_id])
         print(len(self.targets))
@@ -121,6 +130,11 @@ class SlowEvaluator(BaseEvaluator):
             group_predictions[impression_id] = group_predictions.get(impression_id, []) + prob_prediction #[prob_prediction]
 
         group_predictions = sorted(group_predictions.items())
+        
+        #
+        #self.group_predictions = group_predictions 
+        #
+
         self.prob_predictions = [i[1] for i in group_predictions]
 
     def eval_batch(self, logits: Tensor, impression_ids: Tensor):
@@ -144,6 +158,10 @@ class SlowEvaluator(BaseEvaluator):
         self.prob_predictions.extend(probs.tolist())
         self.impression_ids.extend(impression_ids.tolist())
 
+    
+    def save_predictions(self,path:str):
+        pred_dict = {'pred':self.prob_predictions, 'impression_id':self.impression_ids}
+        pk.dump(pred_dict,open(os.path.join(path, 'preds.pkl'),'wb'))
 
 def compute_mrr_score(y_true: np.ndarray, y_score: np.ndarray):
     r"""
@@ -207,6 +225,7 @@ def save_scores(path, scores):
         for score in scores:
             f.write(str(score))
             f.write('\n')
+
 
 
 def flatten(lists: List[List]) -> List:
