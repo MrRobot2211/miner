@@ -1,0 +1,34 @@
+# Common args
+--model_name Miner
+--pretrained_tokenizer FacebookAI/roberta-base
+--user2id_path data/user2id.json
+--category2id_path data/category2id.json
+--max_title_length 32
+--max_sapo_length 64
+--his_length 50
+--seed 36
+--save_eval_result
+--metrics auc group_auc mrr ndcg@5 ndcg@10 hit@5 hit@10
+--evaluation_info metrics loss
+--device cuda:0
+
+# Eval args
+--data_name CafeFNewsRecommend
+--eval_behaviors_path data/test/behaviors.tsv
+--eval_news_path data/test/news.tsv
+--eval_batch_size 64
+--dataloader_num_workers 8
+--dataloader_pin_memory
+--saved_model_path train/miner_aug_nosapo/bestAucModel.pt
+
+
+#miner_aug_64_rep1
+#train/aug_b4_orAccsteps/bestAucModel.pt
+#mineraug_onlytopic_onliunewell
+#miner_aug_topic_enh_onlineewell
+#miner_aug_64_rep1
+
+#miner_or_on_devtrain_not_real_dev
+#miner_original1
+#miner_original_rep_p
+#miner_aug_no_sapo_no_red

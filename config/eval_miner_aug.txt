@@ -1,5 +1,5 @@
 # Common args
---model_name fastformer
+--model_name Miner
 --pretrained_tokenizer FacebookAI/roberta-base
 --user2id_path data/user2id.json
 --category2id_path data/category2id.json
@@ -10,20 +10,24 @@
 --save_eval_result
 --metrics auc group_auc mrr ndcg@5 ndcg@10 hit@5 hit@10
 --evaluation_info metrics loss
---device cuda:1
+--device cuda:0
 
 # Eval args
 --data_name CafeFNewsRecommend
 --eval_behaviors_path data/test_large_hard_select/behaviors.tsv
 --eval_news_path data/test_large_hard_select/news.tsv
---eval_batch_size 32
---dataloader_num_workers 4
+--eval_batch_size 64
+--dataloader_num_workers 8
 --dataloader_pin_memory
---saved_model_path train/fastformer_original_rep/bestLossModel.pt
+--saved_model_path train/miner_aug_64_rep1/finalModel.pt
 
 
-#fastformer_or
-#fastformer_online_aug_base
 #train/aug_b4_orAccsteps/bestAucModel.pt
-#fastformer_hard_rep
-#fastformer_hard_rep
+#mineraug_onlytopic_onliunewell
+#miner_aug_topic_enh_onlineewell
+#miner_aug_64_rep1
+
+#miner_or_on_devtrain_not_real_dev
+#miner_original1
+#miner_original_rep_p
+#miner_original_continued_pretraining

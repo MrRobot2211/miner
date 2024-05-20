@@ -58,7 +58,7 @@ class Trainer(BaseTrainer):
          
         train_dataset = reader.read_train_dataset(args.data_name, args.train_news_path, args.train_behaviors_path, 
                                                   args.augmentations,aug_mode=args.augmentation_mode,online=bool(args.online))
-        train_dataset.set_mode(Dataset.TRAIN_MODE)
+        train_dataset.set_mode("pretrain")
         train_dataloader = DataLoader(train_dataset, batch_size=args.train_batch_size, shuffle=False,
                                       num_workers=args.dataloader_num_workers, collate_fn=self._collate_fn,
                                       drop_last=args.dataloader_drop_last, pin_memory=args.dataloader_pin_memory)
@@ -89,29 +89,13 @@ class Trainer(BaseTrainer):
 
         # Create model
         config = RobertaConfig.from_pretrained(args.pretrained_embedding)
-        news_encoder = NewsEncoder.from_pretrained(args.pretrained_embedding, config=config,
+        model = NewsEncoder.from_pretrained(args.pretrained_embedding, config=config,
                                                    apply_reduce_dim=args.apply_reduce_dim, use_sapo=args.use_sapo,
                                                    dropout=args.dropout, freeze_transformer=args.freeze_transformer,
                                                    word_embed_dim=args.word_embed_dim, combine_type=args.combine_type,
                                                    lstm_num_layers=args.lstm_num_layers, lstm_dropout=args.lstm_dropout)
         
         
-        #TODO FastFormer
-        
-        if args.pretrained_model_path:
-            news_encoder = self._load_model(args.pretrained_model_path)
-        else:
-            news_encoder = NewsEncoder.from_pretrained(args.pretrained_embedding, config=config,
-                                                   apply_reduce_dim=args.apply_reduce_dim, use_sapo=args.use_sapo,
-                                                   dropout=args.dropout, freeze_transformer=args.freeze_transformer,
-                                                   word_embed_dim=args.word_embed_dim, combine_type=args.combine_type,
-                                                   lstm_num_layers=args.lstm_num_layers, lstm_dropout=args.lstm_dropout)
-
-        model = Miner(news_encoder=news_encoder, use_category_bias=args.use_category_bias,
-                        num_context_codes=args.num_context_codes, context_code_dim=args.context_code_dim,
-                        score_type=args.score_type, dropout=args.dropout, num_category=len(self._category2id),
-                        category_embed_dim=args.category_embed_dim, category_pad_token_id=self._category2id['pad'],
-                        category_embed=category_embed)
         model.to(self._device)
         model.zero_grad(set_to_none=True)
 
@@ -248,13 +232,13 @@ class Trainer(BaseTrainer):
         batch = utils.to_device(batch, self._device)
         if self.args.fp16:
             with torch.autocast(device_type=self._device.type, dtype=torch.float16):
-                poly_attn, logits = self._forward_step(model, batch)
-                loss = loss_calculator.compute(poly_attn, logits, batch['label'])
+                logits = self._forward_step(model, batch)
+                loss = loss_calculator.compute_pretrain( logits)
                 loss = loss / accumulation_factor
             self.scaler.scale(loss).backward()
         else:
-            poly_attn, logits = self._forward_step(model, batch)
-            loss = loss_calculator.compute(poly_attn, logits, batch['label'])
+            logits = self._forward_step(model, batch)
+            loss = loss_calculator.compute_pretrain( logits)
             loss = loss / accumulation_factor
             loss.backward()
 
@@ -262,7 +246,7 @@ class Trainer(BaseTrainer):
 
     def _eval(self, model, dataset, loss_calculator, metrics: List[str], save_result: bool = False):
         model.eval()
-        dataset.set_mode(Dataset.EVAL_MODE)
+        dataset.set_mode("pretrain")
         if self.args.fast_eval:
             evaluator = FastEvaluator(dataset)
         else:
@@ -278,9 +262,9 @@ class Trainer(BaseTrainer):
         with torch.no_grad():
             for batch in tqdm(dataloader, total=len(dataloader), desc='Evaluation phase'):
                 batch = utils.to_device(batch, self._device)
-                poly_attn, logits = self._forward_step(model, batch)
+                logits = self._forward_step(model, batch)
                 if 'loss' in self.args.evaluation_info:
-                    batch_loss = loss_calculator.compute_eval_loss(poly_attn, logits, batch['label'])
+                    batch_loss = loss_calculator.compute_pretrain(logits)
                     total_loss += batch_loss
                     total_pos_example += batch['label'].sum().item()
                 if 'metrics' in self.args.evaluation_info:
@@ -288,7 +272,7 @@ class Trainer(BaseTrainer):
         if "eval" in self.args.mode  : 
             evaluator.save_predictions(self._path)
         if 'loss' in self.args.evaluation_info:
-            loss = total_loss / total_pos_example
+            loss = total_loss #/ total_pos_example
         else:
             loss = None
         if 'metrics' in self.args.evaluation_info:
@@ -333,9 +317,18 @@ class Trainer(BaseTrainer):
 
     @staticmethod
     def _forward_step(model, batch):
-        poly_attn, logits = model(title=batch['title'], title_mask=batch['title_mask'], his_title=batch['his_title'],
-                                  his_title_mask=batch['his_title_mask'], his_mask=batch['his_mask'],
-                                  sapo=batch['sapo'], sapo_mask=batch['sapo_mask'], his_sapo=batch['his_sapo'],
-                                  his_sapo_mask=batch['his_sapo_mask'], category=batch['category'],
-                                  his_category=batch['his_category'])
-        return poly_attn, logits
+
+        batch_size = batch['title'].shape[0]
+        num_candidates = batch['title'].shape[1]
+
+        # Representation of candidate news
+        title = batch['title'].view(batch_size * num_candidates, -1)
+        title_mask = batch['title_mask'].view(batch_size * num_candidates, -1)
+        sapo = batch['sapo'].view(batch_size * num_candidates, -1)
+        sapo_mask = batch['sapo_mask'].view(batch_size * num_candidates, -1)
+
+        logits = model(title,title_mask,sapo,sapo_mask)
+
+
+
+        return  logits.view(batch_size, num_candidates, -1)

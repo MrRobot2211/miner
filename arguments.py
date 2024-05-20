@@ -78,7 +78,7 @@ def _add_model_args(parser: argparse.ArgumentParser):
     parser.add_argument('--score_type', type=str, choices=['mean', 'max', 'weighted'],
                         help='The ways to aggregate the K matching scores as a final user click score')
     parser.add_argument('--dropout', type=float, help='Dropout value')
-
+    parser.add_argument('--pretrained_model_path', type=str, help='Path to the pretrained model')
 
 def _add_train_args(parser: argparse.ArgumentParser):
     parser.add_argument('--train_path', type=str, default='train',

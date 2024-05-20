@@ -6,7 +6,7 @@ from typing import List
 import pickle as pk
 
 import numpy as np
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, top_k_accuracy_score
 import torch
 from torch import Tensor
 import torch.nn.functional as torch_f
@@ -72,6 +72,14 @@ class BaseEvaluator(ABC):
                 scores[f'ndcg@{k}'] = np.nanmean(list_score)
                 if save_result:
                     save_scores(os.path.join(path, f'ndcg{k}.txt'), list_score)
+            
+            elif metric.startswith('hit'):
+                k = int(metric.split('@')[1])
+                list_score = [is_hit(y_true=np.array(target), y_score=np.array(prob_prediction), k=k)
+                              for target, prob_prediction in zip(self.targets, self.prob_predictions)]
+                scores[f'hit@{k}'] = np.nanmean(list_score)
+                if save_result:
+                    save_scores(os.path.join(path, f'hit{k}.txt'), list_score)
 
         return scores
 
@@ -112,13 +120,16 @@ class SlowEvaluator(BaseEvaluator):
         for sample in self.dataset.samples:
             impression_id = sample.impression.impression_id
             group_labels[impression_id] = group_labels.get(impression_id, []) + sample.impression.label
-
+            
         group_labels = sorted(group_labels.items())
-         #
+        # print(impression_id)
+        # print(group_labels)
+        
+        #
        # self.group_labels = group_labels 
         #
         self.targets = [i[1] for i in group_labels]
-        print(group_labels[impression_id])
+        #print(group_labels[impression_id])
         print(len(self.targets))
 
     def _convert_pred(self):
@@ -230,3 +241,9 @@ def save_scores(path, scores):
 
 def flatten(lists: List[List]) -> List:
     return functools.reduce(operator.iconcat, lists, [])
+
+def is_hit(y_true,y_score,k):
+    
+    ordered_pred = sorted(zip(y_score,y_true),key=lambda x:x[0],reverse=True)
+    hit_num = sum([label  for _,label in ordered_pred[:k] ])
+    return int(hit_num > 0)

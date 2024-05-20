@@ -1,22 +1,22 @@
 # Common args
---model_name fastformer
+--model_name Miner
 --pretrained_tokenizer FacebookAI/roberta-base
 --user2id_path data/user2id.json
 --category2id_path data/category2id.json
 --max_title_length 32
---max_sapo_length 64
+--max_sapo_length 128
 --his_length 50
 --seed 36
---metrics auc group_auc mrr ndcg@5 ndcg@10 hit@5 hit@10
---device cuda:2
+--metrics auc mrr ndcg@5
+--device cuda:1
 
 # Data args
---data_name CafeF_News_Recommend_Data
+--data_name data_only_change_topic_aug
 --train_behaviors_path data/train/behaviors.tsv
 --train_news_path data/train/news.tsv
 --eval_behaviors_path data/valid/behaviors.tsv
 --eval_news_path data/valid/news.tsv
---augmentations changed_topic_text enhanced_text semi_enhanced_text
+--augmentations changed_topic_text enhanced_text
 --online 1
 
 # Model args
@@ -30,19 +30,15 @@
 --context_code_dim 200
 --score_type weighted
 --dropout 0.2
---freeze_transformer
-
-
-#combine_type pre-concat
 
 # Train args
 --npratio 4
---train_batch_size 16
---eval_batch_size 64
+--train_batch_size 3
+--eval_batch_size 32
 --dataloader_drop_last
---dataloader_num_workers 4
+--dataloader_num_workers 6
 --dataloader_pin_memory
---gradient_accumulation_steps 4
+--gradient_accumulation_steps 42
 --num_train_epochs 5
 --learning_rate 2e-5
 --warmup_ratio 0.1
@@ -50,4 +46,4 @@
 --weight_decay 0.01
 --logging_steps 200
 --evaluation_info metrics loss
---eval_steps 400
+--eval_steps 100000

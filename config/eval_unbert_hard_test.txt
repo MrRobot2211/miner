@@ -1,6 +1,6 @@
 # Common args
---model_name fastformer
---pretrained_tokenizer FacebookAI/roberta-base
+--model_name unbert
+--pretrained_tokenizer bert-base-uncased
 --user2id_path data/user2id.json
 --category2id_path data/category2id.json
 --max_title_length 32
@@ -10,20 +10,19 @@
 --save_eval_result
 --metrics auc group_auc mrr ndcg@5 ndcg@10 hit@5 hit@10
 --evaluation_info metrics loss
---device cuda:1
+--device cuda:0
 
 # Eval args
 --data_name CafeFNewsRecommend
 --eval_behaviors_path data/test_large_hard_select/behaviors.tsv
 --eval_news_path data/test_large_hard_select/news.tsv
---eval_batch_size 32
---dataloader_num_workers 4
+--eval_batch_size 128
+--dataloader_num_workers 12
 --dataloader_pin_memory
---saved_model_path train/fastformer_original_rep/bestLossModel.pt
+--saved_model_path train/unbert_original_repeat/bestAucModel.pt
 
 
-#fastformer_or
-#fastformer_online_aug_base
+ 
+
+
 #train/aug_b4_orAccsteps/bestAucModel.pt
-#fastformer_hard_rep
-#fastformer_hard_rep

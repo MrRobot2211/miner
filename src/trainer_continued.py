@@ -97,21 +97,13 @@ class Trainer(BaseTrainer):
         
         
         #TODO FastFormer
-        
-        if args.pretrained_model_path:
-            news_encoder = self._load_model(args.pretrained_model_path)
-        else:
-            news_encoder = NewsEncoder.from_pretrained(args.pretrained_embedding, config=config,
-                                                   apply_reduce_dim=args.apply_reduce_dim, use_sapo=args.use_sapo,
-                                                   dropout=args.dropout, freeze_transformer=args.freeze_transformer,
-                                                   word_embed_dim=args.word_embed_dim, combine_type=args.combine_type,
-                                                   lstm_num_layers=args.lstm_num_layers, lstm_dropout=args.lstm_dropout)
-
         model = Miner(news_encoder=news_encoder, use_category_bias=args.use_category_bias,
-                        num_context_codes=args.num_context_codes, context_code_dim=args.context_code_dim,
-                        score_type=args.score_type, dropout=args.dropout, num_category=len(self._category2id),
-                        category_embed_dim=args.category_embed_dim, category_pad_token_id=self._category2id['pad'],
-                        category_embed=category_embed)
+                      num_context_codes=args.num_context_codes, context_code_dim=args.context_code_dim,
+                      score_type=args.score_type, dropout=args.dropout, num_category=len(self._category2id),
+                      category_embed_dim=args.category_embed_dim, category_pad_token_id=self._category2id['pad'],
+                      category_embed=category_embed)
+        
+        model = self._load_model(args.pretrained_model_path)
         model.to(self._device)
         model.zero_grad(set_to_none=True)
 

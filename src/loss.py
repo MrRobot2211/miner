@@ -84,3 +84,15 @@ class Loss(AbstractLoss):
 
         return total_loss.item()
 
+    def compute_pretrain(self,embs):
+        
+        positive = embs[:,0,:].unsqueeze(1) 
+        augmentations = embs[:,1:4,:]
+        negatives = embs[:,4:,:]
+        
+
+        main_distance = pairwise_cosine_similarity(positive,negatives).sum()
+        aug_distance = pairwise_cosine_similarity(positive,augmentations).sum()
+
+        #print(main_distance)
+        return - (main_distance + 0.001*aug_distance)

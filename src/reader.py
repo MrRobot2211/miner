@@ -285,14 +285,16 @@ class Reader:
         
         
         #print(isinstance(dataset,MindDataset))
-        if isinstance(dataset,MindDataset) and ((len(pos_news)>0) or (len(neg_news)>0)):
-            dataset.add_sample(user_id, history_clicked,pos_news,neg_news,  self._npratio, impression_id)
-        else:
-            if (len(pos_news)>0) and (len(neg_news)>0):
-                for pos_new in pos_news:
-                    #print(pos_new)
-                    #print(neg_news)
-                    dataset.add_sample(user_id, history_clicked,pos_new,neg_news,  self._npratio, impression_id)
+        #if isinstance(dataset,MindDataset) and ((len(pos_news)>0) or (len(neg_news)>0)):
+       
+        # if isinstance(dataset,MindDataset) and ((len(pos_news)>0) ):
+        #     dataset.add_sample(user_id, history_clicked,pos_news,neg_news,  self._npratio, impression_id)
+        # else:
+        if (len(pos_news)>0) and (len(neg_news)>0):
+            for pos_new in pos_news:
+                #print(pos_new)
+                #print(neg_news)
+                dataset.add_sample(user_id, history_clicked,pos_new,neg_news,  self._npratio, impression_id)
 
 
     def _parse_PREtrain_line_online(self, impression_id, line, news_dataset, dataset,augmentations=None):
@@ -364,12 +366,20 @@ class Reader:
         news_dataset = news_dataset['vanilla']
 
         history_clicked = [news_dataset[news_id] for news_id in line[constants.HISTORY].split()]
-        history_clicked = [news_dataset['pad']] * (self._max_his_click - len(history_clicked)) + history_clicked[
-                                                                                                 :self._max_his_click]
-        for behavior in line[constants.BEHAVIOR].split():
-            news_id, label = behavior.split('-')
-            impression = dataset.create_impression(impression_id, user_id, [news_dataset[news_id]], [int(label)])
-            dataset.add_sample(user_id, history_clicked, impression)
+        history_clicked = [news_dataset['pad']] * (self._max_his_click - len(history_clicked)) + history_clicked[:self._max_his_click]
+        
+
+        #print([ behavior.contains("-1") for behavior in line[constants.BEHAVIOR].split()])
+        ##### TODO revise this as it may change scores
+        if ("-1" in line[constants.BEHAVIOR]) and ("-0" in line[constants.BEHAVIOR]):
+        ######                                                                    
+            for behavior in line[constants.BEHAVIOR].split():
+                news_id, label = behavior.split('-')
+                impression = dataset.create_impression(impression_id, user_id, [news_dataset[news_id]], [int(label)])
+                dataset.add_sample(user_id, history_clicked, impression)
+
+
+
 
 #GENERATE LISTS OF POSITIVE AND OF NEGATIVE IMPRESSIONS
     

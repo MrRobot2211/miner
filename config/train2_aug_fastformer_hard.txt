@@ -8,7 +8,8 @@
 --his_length 50
 --seed 36
 --metrics auc group_auc mrr ndcg@5 ndcg@10 hit@5 hit@10
---device cuda:2
+--device cuda:0
+--augmentation_mode hard
 
 # Data args
 --data_name CafeF_News_Recommend_Data
@@ -25,15 +26,12 @@
 --use_sapo
 --word_embed_dim 256
 --category_embed_dim 100
---combine_type linear
 --num_context_codes 32
 --context_code_dim 200
 --score_type weighted
 --dropout 0.2
 --freeze_transformer
-
-
-#combine_type pre-concat
+--combine_type linear
 
 # Train args
 --npratio 4
@@ -42,7 +40,7 @@
 --dataloader_drop_last
 --dataloader_num_workers 4
 --dataloader_pin_memory
---gradient_accumulation_steps 4
+--gradient_accumulation_steps 8
 --num_train_epochs 5
 --learning_rate 2e-5
 --warmup_ratio 0.1
@@ -50,4 +48,4 @@
 --weight_decay 0.01
 --logging_steps 200
 --evaluation_info metrics loss
---eval_steps 400
+--eval_steps 10000000

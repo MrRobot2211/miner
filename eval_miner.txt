@@ -4,22 +4,22 @@
 --user2id_path data/user2id.json
 --category2id_path data/category2id.json
 --max_title_length 32
---max_sapo_length 64
+--max_sapo_length 128
 --his_length 50
 --seed 36
 --save_eval_result
---metrics auc group_auc mrr ndcg@5 ndcg@10 hit@5 hit@10
+--metrics auc mrr ndcg@5 ndcg@10
 --evaluation_info metrics loss
---device cuda:2
+--device cuda:0
 
 # Eval args
 --data_name CafeFNewsRecommend
---eval_behaviors_path data/test_hard/behaviors.tsv
---eval_news_path data/test_hard/news.tsv
+--eval_behaviors_path data/test_hard_small/behaviors.tsv
+--eval_news_path data/test_hard_small/news.tsv
 --eval_batch_size 32
 --dataloader_num_workers 4
 --dataloader_pin_memory
---saved_model_path train/miner_or_on_devtrain_not_real_dev/bestAucModel.pt
+--saved_model_path train/aug_b4_orAccsteps/bestAucModel.pt
 
 
 #train/aug_b4_orAccsteps/bestAucModel.pt

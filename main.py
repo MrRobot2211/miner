@@ -3,6 +3,7 @@ import argparse
 import arguments
 from src import utils
 from src.trainer import Trainer
+from src.pretrainer import Trainer as PreTrainer
 from src.trainer_fastformer import Trainer as TrainerFast
 
 def _train(args):
@@ -24,6 +25,10 @@ def _eval_fast(args):
     trainer.eval()
 
 
+def _pretrain(args):
+    trainer = PreTrainer(args)
+    trainer.train()
+
 
 def main():
     parser = argparse.ArgumentParser(description='Arguments for Miner model', fromfile_prefix_chars='@',
@@ -39,6 +44,8 @@ def main():
     arguments.add_eval_arguments(eval_parser)
     eval_parser = subparsers.add_parser('eval_fastformer', help='Evaluation phase')
     arguments.add_eval_arguments(eval_parser)
+    eval_parser = subparsers.add_parser('pretrain', help='Pretraining')
+    arguments.add_train_arguments(eval_parser)
 
     args = parser.parse_args()
     if args.mode == 'train':
@@ -49,6 +56,9 @@ def main():
         _eval(args)
     elif args.mode == 'eval_fastformer':
         _eval_fast(args)
+    elif args.mode == 'pretrain':
+        _pretrain(args)
+
 
 if __name__ == '__main__':
     main()

@@ -10,7 +10,7 @@
 --save_eval_result
 --metrics auc group_auc mrr ndcg@5 ndcg@10 hit@5 hit@10
 --evaluation_info metrics loss
---device cuda:1
+--device cuda:0
 
 # Eval args
 --data_name CafeFNewsRecommend
@@ -19,7 +19,7 @@
 --eval_batch_size 32
 --dataloader_num_workers 4
 --dataloader_pin_memory
---saved_model_path train/fastformer_original_rep/bestLossModel.pt
+--saved_model_path train/fastformer_aug_rep/bestLossModel.pt
 
 
 #fastformer_or
@@ -27,3 +27,4 @@
 #train/aug_b4_orAccsteps/bestAucModel.pt
 #fastformer_hard_rep
 #fastformer_hard_rep
+#fastformer_aug_rep

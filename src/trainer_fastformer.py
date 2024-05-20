@@ -119,6 +119,8 @@ class Trainer(BaseTrainer):
             model = FastFormer(news_encoder=news_encoder, 
                         score_type=args.score_type, dropout=args.dropout)
             
+            print("here fast")
+            
         elif args.model_name=='unisrec':
             config = BertConfig.from_pretrained(args.pretrained_embedding)
             news_encoder = NewsEncoderMoe.from_pretrained(args.pretrained_embedding, config=config,
@@ -330,7 +332,10 @@ class Trainer(BaseTrainer):
             print(batch['impression_id'].shape)
            # print(len(evaluator.targets))
            # print(len(evaluator.prob_predictions))
-
+        
+        if "eval" in self.args.mode  : 
+            evaluator.save_predictions(self._path)
+        
         if 'loss' in self.args.evaluation_info:
             loss = total_loss / total_pos_example
         else:

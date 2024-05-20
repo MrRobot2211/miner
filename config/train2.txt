@@ -4,10 +4,12 @@
 --user2id_path data/user2id.json
 --category2id_path data/category2id.json
 --max_title_length 32
---max_sapo_length 64
+--max_sapo_length 128
 --his_length 50
 --seed 36
---metrics auc
+--metrics auc group_auc mrr ndcg@5 ndcg@10 hit@5 hit@10
+--online 1
+--device cuda:0
 
 # Data args
 --data_name CafeF_News_Recommend_Data
@@ -30,12 +32,12 @@
 
 # Train args
 --npratio 4
---train_batch_size 4
---eval_batch_size 64
+--train_batch_size 3
+--eval_batch_size 32
 --dataloader_drop_last
 --dataloader_num_workers 4
 --dataloader_pin_memory
---gradient_accumulation_steps 16
+--gradient_accumulation_steps 42
 --num_train_epochs 5
 --learning_rate 2e-5
 --warmup_ratio 0.1
@@ -43,4 +45,4 @@
 --weight_decay 0.01
 --logging_steps 200
 --evaluation_info metrics
---eval_steps 400
+--eval_steps 100000

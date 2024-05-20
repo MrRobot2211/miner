@@ -239,6 +239,7 @@ class DatasetOnline(Dataset):
         self.aug_type = aug_type
         self.pad_id=pad_id
         self.combine_type = combine_type   
+        print("init dataset online")
     # @staticmethod
     # def create_pre_impression(impression_id: int, user_id: int, pos_news: dict,neg_news:List[int]) -> Impression:
         
@@ -265,7 +266,7 @@ class DatasetOnline(Dataset):
         
     
         impression = self.create_impression(impression_id, user_id, list_news, label)
-        self._id += 1
+        #self._id += 1
         
         sample = Sample(self._id, user_id, clicked_news, impression)
         return sample
@@ -289,11 +290,32 @@ class DatasetOnline(Dataset):
         list_news, label = zip(*impression_news)
         
         impression = self.create_impression(impression_id, user_id, list_news, label)
-        self._id += 1
+        #self._id += 1
         
         sample = Sample(self._id, user_id, clicked_news, impression)
         return sample
-         
+    
+    def _get_pretrain_line(self,pos_news,neg_news,npratio,user_id,clicked_news,augmentations,impression_id):
+
+        #for  i in range(len(pos_news['vanilla'])):
+        label = [1] + [0] * npratio
+
+        list_news = [pos_news['vanilla']] +[pos_news[aug] for aug in augmentations if aug!='vanilla'] + sample_news(neg_news, npratio, self.pad_id)
+
+    #    # impression_news = list(zip(list_news, label))
+    #     np.random.shuffle(impression_news)
+    #     list_news, label = zip(*impression_news)
+        
+    
+        impression = self.create_impression(impression_id, user_id, list_news, [0]*len(list_news))
+        #self._id += 1
+        
+        sample = Sample(self._id, user_id, [], impression)
+        
+        return sample
+
+
+
     
     #@TODO maybe do smth diff here
     def __getitem__(self, i: int):
@@ -315,12 +337,35 @@ class DatasetOnline(Dataset):
         elif self.aug_type=='hard':
             sample = self._get_train_line_hard(pos_news,neg_news,npratio,user_id,clicked_news,augmentations,impression_id)
 
-            
+        if  self._mode == "pretrain":
+            #print('here')
+            sample = self._get_pretrain_line(pos_news,neg_news,npratio,user_id,clicked_news,augmentations,impression_id)
+            return create_pretrain_sample(sample, self._tokenizer, self._category2id,self.combine_type)
 
         if self._mode == Dataset.TRAIN_MODE:
             return create_train_sample(sample, self._tokenizer, self._category2id,self.combine_type)
         else:
             return create_eval_sample(sample, self._tokenizer, self._category2id,self.combine_type)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 #TODO:change this to incorporate augmentations, do another one of this that owhen called actually samples from the possible augmentation set in some way. 
@@ -367,6 +412,35 @@ def _create_sample(sample: Sample, tokenizer: PreTrainedTokenizer, category2id: 
 
 
 
+def create_pretrain_sample(sample: Sample, tokenizer: PreTrainedTokenizer, category2id: dict,combine_type=None) -> dict:
+    title_clicked_news_encoding = [news.title for news in sample.clicked_news]
+    sapo_clicked_news_encoding = [news.sapo for news in sample.clicked_news]
+    
+    category_clicked_news_encoding = [news.category for news in sample.clicked_news]
+    
+    #if not aug:
+    title_impression_encoding = [news.title for news in sample.impression.news]
+    sapo_impression_encoding = [news.sapo for news in sample.impression.news]
+    if combine_type =='pre-concat':
+        title_clicked_news_encoding = [news.title + news.sapo[1:] for news in sample.clicked_news]
+        title_impression_encoding = [ news.title+ news.sapo[1:] for news in sample.impression.news]
+    
+    category_impression_encoding = [news.category for news in sample.impression.news]
+    
+    # Create tensor
+    impression_id = torch.tensor(sample.impression.impression_id)
+
+    title_impression_encoding = utils.padded_stack(title_impression_encoding, padding=tokenizer.pad_token_id)
+    sapo_impression_encoding = utils.padded_stack(sapo_impression_encoding, padding=tokenizer.pad_token_id)
+    category_impression_encoding = torch.tensor(category_impression_encoding)
+    title_mask = (title_impression_encoding != tokenizer.pad_token_id)
+    sapo_mask = (sapo_impression_encoding != tokenizer.pad_token_id)
+
+    label = torch.tensor(sample.impression.label)
+
+    return dict(  title=title_impression_encoding,
+                title_mask=title_mask, sapo=sapo_impression_encoding, sapo_mask=sapo_mask,
+                category=category_impression_encoding, impression_id=impression_id, label=label)
 
 
 
@@ -597,14 +671,16 @@ class MindDataset(DatasetOnline):
     def __getitem__(self, index: int) -> Dict[str, Any]:
         #example = self._examples.iloc[index]
         #we need to open up impressions in some way (maybe just do it at random)
-        
+        #print(len(self.samples))
+        #print(self.samples[54163])
         sample = self.samples[index//5]
 
         impression_id = sample.impression_id
         user_id = sample.user_id
         clicked_news =sample.clicked_news
-
+       # print(sample.pos_news)
         augmentations = [ aug for aug in sample.pos_news.keys()]
+
         pos_news = sample.pos_news
 
         neg_news = sample.neg_news

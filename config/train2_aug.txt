@@ -8,14 +8,15 @@
 --his_length 50
 --seed 36
 --metrics auc
+--device cuda:1
 
 # Data args
---data_name CafeF_News_Recommend_Data
+--data_name only swaps changed topic
 --train_behaviors_path data/train/behaviors.tsv
 --train_news_path data/train/news.tsv
 --eval_behaviors_path data/valid/behaviors.tsv
 --eval_news_path data/valid/news.tsv
---augmentations changed_topic_text enhanced_text semi_enhanced_text
+--augmentations changed_topic_text 
 
 # Model args
 --pretrained_embedding FacebookAI/roberta-base
@@ -43,5 +44,5 @@
 --max_grad_norm 1.0
 --weight_decay 0.01
 --logging_steps 200
---evaluation_info metrics
+--evaluation_info metrics loss
 --eval_steps 400
